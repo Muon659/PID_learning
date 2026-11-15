@@ -1,29 +1,20 @@
 import time
 
+from random import randint
+
 import matplotlib.pyplot as plt
 
 
-# these functions can link up to a sensor
-
-def measure_temp():
-  return 20
-
-def setpoint():
-  return 100
-
-def controller_on():
-  return True
-
-class auger_pid_controller:
+class PIDcontroller:
   """PID Controller"""
-  def __init__(self, kp, ki, kd, int_windup, sample_time):
+  def __init__(self, kp, ki, kd, int_windup, sample_interval):
     self.kp = kp
     self.ki = ki
     self.kd = kd
     self.int_windup = int_windup
     self.last_time = time.time()
-    self.last_error = 1#self.setpoint - self.measurement (bug)
-    self.sample_time = sample_time
+    self.last_error = 0
+    self.sample_interval = sample_interval
     self.PTerm = 0
     self.ITerm = 0
     self.DTerm = 0
@@ -37,54 +28,52 @@ class auger_pid_controller:
 
   def update(self, measurement):
     error = self.setpoint - measurement
-    #print(error)
-    #print(measurement)
     current_time = time.time()
     delta_time = current_time - (self.last_time-1)
     delta_error = error - self.last_error
-    time.sleep(self.sample_time)
-    if delta_time >= self.sample_time:
+    
+    time.sleep(self.sample_interval)
+    
+    if delta_time >= self.sample_interval:
       self.PTerm = self.kp * error
       self.ITerm += error * delta_time
+
+      # windup guard
       if self.ITerm < -self.int_windup:
         self.ITerm = -self.int_windup
       elif self.ITerm > self.int_windup:
         self.ITerm = self.int_windup
+
+      # ensures that no division by zero occurs
       if delta_time > 0:
         self.DTerm = delta_error / delta_time
+        
     self.last_time = current_time
     self.last_error = error
-    #print(delta_error)
     output = self.PTerm + (self.ki * self.ITerm) + (self.kd * self.DTerm)
     return output
 
-class fan_pid_controller(auger_pid_controller):
-  pass
-
+# main function sets the setpoint randomly, then randomly changes it halfway through the main loop
 def main():
-  #auger_pid = auger_pid_controller(0.1,0.5,0.11,10,2)
-  fan_pid = fan_pid_controller(0.1,0.7,0.2,10,2)
-  temp = measure_temp()
-  temp_array = []
-  #while controller_on() == True:
-  setpnt = setpoint()
+  pid = PIDcontroller(kp=0.1,ki=0.7,kd=0.2,int_windup=10,sample_interval=0.5)
+  value = randint(50, 90)
+  value_array = []
+  setpnt = randint(75, 175)
+  print(f"Inital Setpoint: {setpnt}")
+  
   for x in range(50):
-    if x == 20:
-      setpnt = 50
-    #setpnt = setpoint()
-    #auger_pid.set_setpoint(setpnt)
-    fan_pid.set_setpoint(setpnt)
-    #auger_output = auger_pid.update(temp)
-    fan_output = fan_pid.update(temp)
-    #temp += auger_output
-    temp += fan_output
-    temp_array.append(temp)
-  plt.plot(temp_array)
+    if x == 25:
+      setpnt = randint(50, 150)
+    pid.set_setpoint(setpnt)
+    pid_output = pid.update(value)
+    value += pid_output
+    value_array.append(value)
+  
+  plt.plot(value_array)
   plt.show()
-  print(temp)
+  print(f"\nFinal Setpoint: {setpnt}")
+  print(f"Final Value: {value}")
 
 
 if __name__ == "__main__":
   main()
-
-
